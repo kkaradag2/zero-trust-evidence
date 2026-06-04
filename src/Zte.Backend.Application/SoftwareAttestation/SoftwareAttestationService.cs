@@ -47,12 +47,17 @@ public sealed class SoftwareAttestationService : ISoftwareAttestationService
 
         stopwatch.Stop();
 
+        var verificationTimeMs = stopwatch.Elapsed.TotalMilliseconds;
+        var verificationTimeMicroseconds =
+            stopwatch.ElapsedTicks * 1_000_000L / Stopwatch.Frequency;
+
         return new VerificationResult(
             Accepted: accepted,
             AttestationType: AttestationType.Software,
             RiskLevel: riskLevel,
             ProcessingStepCount: processingStepCount,
-            VerificationTimeMs: stopwatch.ElapsedMilliseconds,
+            VerificationTimeMs: verificationTimeMs,
+            VerificationTimeMicroseconds: verificationTimeMicroseconds,
             MessageSizeBytes: messageSizeBytes,
             Reasons: reasons);
     }

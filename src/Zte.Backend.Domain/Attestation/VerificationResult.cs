@@ -5,6 +5,7 @@ public sealed record VerificationResult(
     AttestationType AttestationType,
     RiskLevel RiskLevel,
     int ProcessingStepCount,
-    long VerificationTimeMs,
+    double VerificationTimeMs,
+    long VerificationTimeMicroseconds,
     int MessageSizeBytes,
     IReadOnlyList<string> Reasons);
