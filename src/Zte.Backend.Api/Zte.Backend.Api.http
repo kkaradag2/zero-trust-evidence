@@ -1,0 +1,6 @@
+@Zte.Backend.Api_HostAddress = http://localhost:5145
+
+GET {{Zte.Backend.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

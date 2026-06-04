@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Zte.Backend.Api/Zte.Backend.Api.csproj" />
+    <Project Path="src/Zte.Backend.Application/Zte.Backend.Application.csproj" />
+    <Project Path="src/Zte.Backend.Domain/Zte.Backend.Domain.csproj" />
+    <Project Path="src/Zte.Backend.Infrastructure/Zte.Backend.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Zte.Backend.Tests/Zte.Backend.Tests.csproj" />
+  </Folder>
+</Solution>
