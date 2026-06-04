@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 using Zte.Backend.Application.SoftwareAttestation;
+using Zte.Backend.Application.Measurements;
+using Zte.Backend.Infrastructure.Measurements;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +16,7 @@ builder.Services
 builder.Services.AddOpenApi();
 
 builder.Services.AddScoped<ISoftwareAttestationService, SoftwareAttestationService>();
+builder.Services.AddSingleton<IMeasurementStore, InMemoryMeasurementStore>();
 
 var app = builder.Build();
 

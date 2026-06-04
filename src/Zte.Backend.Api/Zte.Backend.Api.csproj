@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Zte.Backend.Application\Zte.Backend.Application.csproj" />
+    <ProjectReference Include="..\Zte.Backend.Infrastructure\Zte.Backend.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
