@@ -1,5 +1,7 @@
-﻿using Zte.Backend.Application.SoftwareAttestation;
+﻿using Zte.Backend.Application.Challenges;
+using Zte.Backend.Application.SoftwareAttestation;
 using Zte.Backend.Domain.Attestation;
+using Zte.Backend.Domain.Challenges;
 
 namespace Zte.Backend.Tests.SoftwareAttestation;
 
@@ -12,9 +14,21 @@ public sealed class SoftwareAttestationServiceTests
         // This test represents a normal Android device posture.
         // The device is Android, the application version is present,
         // and there are no emulator or root indicators.
-        var service = new SoftwareAttestationService();
+        var challengeStore = new TestChallengeStore();
+
+        var challenge = new AttestationChallenge(
+            ChallengeId: Guid.NewGuid(),
+            Nonce: "test-nonce",
+            CreatedAtUtc: DateTime.UtcNow,
+            ExpiresAtUtc: DateTime.UtcNow.AddMinutes(5));
+
+        challengeStore.Add(challenge);
+
+        var service = new SoftwareAttestationService(challengeStore);
 
         var request = new SoftwareAttestationRequest(
+            ChallengeId: challenge.ChallengeId,
+            Nonce: challenge.Nonce,
             DeviceId: "test-device-001",
             Platform: "android",
             OsVersion: "14",
@@ -24,7 +38,6 @@ public sealed class SoftwareAttestationServiceTests
             IsEmulator: false,
             IsRooted: false,
             ClientTimestampUtc: DateTime.UtcNow);
-
         // Act
         // The service verifies the software/context-aware posture signals.
         var result = service.Verify(request, messageSizeBytes: 220);
@@ -35,7 +48,7 @@ public sealed class SoftwareAttestationServiceTests
         Assert.True(result.Accepted);
         Assert.Equal(AttestationType.Software, result.AttestationType);
         Assert.Equal(RiskLevel.Low, result.RiskLevel);
-        Assert.Equal(4, result.ProcessingStepCount);
+        Assert.Equal(5, result.ProcessingStepCount);
         Assert.Equal(220, result.MessageSizeBytes);
         Assert.Empty(result.Reasons);
 
@@ -53,9 +66,21 @@ public sealed class SoftwareAttestationServiceTests
         // appears to be running inside an emulator.
         // In this simplified rule set, a single suspicious signal
         // increases the risk level but does not immediately reject the request.
-        var service = new SoftwareAttestationService();
+        var challengeStore = new TestChallengeStore();
+
+        var challenge = new AttestationChallenge(
+            ChallengeId: Guid.NewGuid(),
+            Nonce: "test-nonce",
+            CreatedAtUtc: DateTime.UtcNow,
+            ExpiresAtUtc: DateTime.UtcNow.AddMinutes(5));
+
+        challengeStore.Add(challenge);
+
+        var service = new SoftwareAttestationService(challengeStore);
 
         var request = new SoftwareAttestationRequest(
+            ChallengeId: challenge.ChallengeId,
+            Nonce: challenge.Nonce,
             DeviceId: "test-device-002",
             Platform: "android",
             OsVersion: "14",
@@ -75,7 +100,7 @@ public sealed class SoftwareAttestationServiceTests
         Assert.True(result.Accepted);
         Assert.Equal(AttestationType.Software, result.AttestationType);
         Assert.Equal(RiskLevel.Medium, result.RiskLevel);
-        Assert.Equal(4, result.ProcessingStepCount);
+        Assert.Equal(5, result.ProcessingStepCount);
         Assert.Equal(225, result.MessageSizeBytes);
         Assert.Contains("Device appears to be an emulator.", result.Reasons);
     }
@@ -88,7 +113,17 @@ public sealed class SoftwareAttestationServiceTests
         // The client appears to be both an emulator and rooted.
         // In the simplified verification policy, multiple suspicious
         // software-level signals result in rejection.
-        var service = new SoftwareAttestationService();
+        var challengeStore = new TestChallengeStore();
+
+        var challenge = new AttestationChallenge(
+            ChallengeId: Guid.NewGuid(),
+            Nonce: "test-nonce",
+            CreatedAtUtc: DateTime.UtcNow,
+            ExpiresAtUtc: DateTime.UtcNow.AddMinutes(5));
+
+        challengeStore.Add(challenge);
+
+        var service = new SoftwareAttestationService(challengeStore);
 
         var request = new SoftwareAttestationRequest(
             DeviceId: "test-device-003",
@@ -99,6 +134,8 @@ public sealed class SoftwareAttestationServiceTests
             DeviceModel: "Unknown",
             IsEmulator: true,
             IsRooted: true,
+            ChallengeId: Guid.NewGuid(),
+            Nonce: "test-nonce",
             ClientTimestampUtc: DateTime.UtcNow);
 
         // Act
@@ -110,9 +147,54 @@ public sealed class SoftwareAttestationServiceTests
         Assert.False(result.Accepted);
         Assert.Equal(AttestationType.Software, result.AttestationType);
         Assert.Equal(RiskLevel.High, result.RiskLevel);
-        Assert.Equal(4, result.ProcessingStepCount);
+        Assert.Equal(5, result.ProcessingStepCount);
         Assert.Equal(230, result.MessageSizeBytes);
         Assert.Contains("Device appears to be an emulator.", result.Reasons);
         Assert.Contains("Device appears to be rooted.", result.Reasons);
     }
+
+    private sealed class TestChallengeStore : IChallengeStore
+    {
+        private readonly Dictionary<Guid, StoredChallenge> _challenges = [];
+
+        public void Add(AttestationChallenge challenge)
+        {
+            _challenges[challenge.ChallengeId] = new StoredChallenge(
+                Challenge: challenge,
+                IsUsed: false);
+        }
+
+        public AttestationChallenge? Get(Guid challengeId)
+        {
+            return _challenges.TryGetValue(challengeId, out var storedChallenge)
+                ? storedChallenge.Challenge
+                : null;
+        }
+
+        public bool MarkAsUsed(Guid challengeId)
+        {
+            if (!_challenges.TryGetValue(challengeId, out var storedChallenge))
+            {
+                return false;
+            }
+
+            if (storedChallenge.IsUsed)
+            {
+                return false;
+            }
+
+            _challenges[challengeId] = storedChallenge with
+            {
+                IsUsed = true
+            };
+
+            return true;
+        }
+
+        private sealed record StoredChallenge(
+            AttestationChallenge Challenge,
+            bool IsUsed);
+    }
+
+
 }

@@ -1,4 +1,14 @@
+
+export type AttestationChallenge = {
+  challengeId: string;
+  nonce: string;
+  createdAtUtc: string;
+  expiresAtUtc: string;
+};
+
 export type SoftwareAttestationRequest = {
+   challengeId: string;
+  nonce: string;
   deviceId: string;
   platform: string;
   osVersion: string;
