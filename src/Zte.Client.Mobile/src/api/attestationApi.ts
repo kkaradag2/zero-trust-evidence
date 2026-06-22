@@ -6,6 +6,7 @@ import {
   HardwareEnrollmentRequest,
   HardwareVerificationRequest,
   HardwareAttestationResult,
+  HardwareEnrollmentResult,
     BenchmarkRun,
   BenchmarkType,
   BenchmarkDeviceInfo,
@@ -68,8 +69,8 @@ export async function runSoftwareAttestation(): Promise<SoftwareAttestationClien
 
 export async function enrollHardwareAttestation(
   request: HardwareEnrollmentRequest,
-): Promise<HardwareAttestationResult> {
-  const response = await fetch(`${API_BASE_URL}/api/attestation/hardware/enroll`, {
+): Promise<HardwareEnrollmentResult> {
+  const response = await fetch(`${API_BASE_URL}/api/hardware-attestation/enroll`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -108,8 +109,21 @@ export type AttestationChallengeResponse = {
   expiresAtUtc: string;
 };
 
-export async function getAttestationChallenge(): Promise<AttestationChallengeResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/attestation/challenge`);
+export async function getAttestationChallenge(request?: {
+  deviceId?: string;
+  appInstanceId?: string;
+  userSessionId?: string;
+  purpose?: string;
+}): Promise<AttestationChallengeResponse> {
+  const response = request
+    ? await fetch(`${API_BASE_URL}/api/attestation/challenge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      })
+    : await fetch(`${API_BASE_URL}/api/attestation/challenge`);
 
   if (!response.ok) {
     throw new Error(`Attestation challenge request failed with status ${response.status}`);

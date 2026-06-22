@@ -66,12 +66,20 @@ export function HardwareAttestationScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Enrollment Result</Text>
           <Text>Accepted: {String(enrollment.accepted)}</Text>
+          <Text>Enrolled Device ID: {enrollment.enrolledDeviceId ?? '-'}</Text>
           <Text>Risk Level: {enrollment.riskLevel}</Text>
-          <Text>Attestation Type: {enrollment.attestationType}</Text>
+          <Text>Hardware Level: {enrollment.hardwareSecurityLevel ?? '-'}</Text>
+          <Text>
+            Attestation Level: {enrollment.attestationSecurityLevel ?? '-'}
+          </Text>
           <Text>Verification Time: {enrollment.verificationTimeMs} ms</Text>
           <Text>Message Size: {enrollment.messageSizeBytes} bytes</Text>
           <Text>Processing Steps: {enrollment.processingStepCount}</Text>
           <Text>Reasons: {enrollment.reasons.join(', ') || '-'}</Text>
+          <Text>Warnings: {enrollment.warnings.join(', ') || '-'}</Text>
+          <Text>
+            Verification Steps: {enrollment.verificationSteps.join(' | ') || '-'}
+          </Text>
         </View>
       ) : null}
 

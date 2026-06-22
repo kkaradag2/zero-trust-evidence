@@ -43,8 +43,10 @@ export type HardwareEnrollmentRequest = {
   challengeId: string;
   nonce: string;
   deviceId: string;
+  appInstanceId?: string;
   keyAlias: string;
   publicKeyBase64: string;
+  attestationEvidence?: string;
   certificateChainBase64: string[];
   clientTimestampUtc: string;
 };
@@ -68,6 +70,21 @@ export type HardwareAttestationResult = {
   verificationTimeMicroseconds: number;
   messageSizeBytes: number;
   reasons: string[];
+};
+
+export type HardwareEnrollmentResult = {
+  accepted: boolean;
+  enrolledDeviceId: string | null;
+  riskLevel: string;
+  verificationSteps: string[];
+  reasons: string[];
+  warnings: string[];
+  hardwareSecurityLevel: string | null;
+  attestationSecurityLevel: string | null;
+  processingStepCount: number;
+  verificationTimeMs: number;
+  verificationTimeMicroseconds: number;
+  messageSizeBytes: number;
 };
 
 

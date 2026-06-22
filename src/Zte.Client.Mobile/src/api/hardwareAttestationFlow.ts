@@ -10,22 +10,29 @@ import {
   signChallenge,
 } from '../native/hardwareAttestationNative';
 
-import type { HardwareAttestationResult } from '../types/attestation';
+import type {
+  HardwareAttestationResult,
+  HardwareEnrollmentResult,
+} from '../types/attestation';
 
 const HARDWARE_KEY_ALIAS = 'zero_trust_hardware_attestation_key';
 
 export type HardwareAttestationFlowResult = {
-  enrollmentResult: HardwareAttestationResult;
+  enrollmentResult: HardwareEnrollmentResult;
   verificationResult: HardwareAttestationResult;
 };
 
 export async function enrollHardwareDevice(
   deviceId: string,
   benchmarkRunId?: string,
-): Promise<HardwareAttestationResult> {
+): Promise<HardwareEnrollmentResult> {
   await deleteHardwareKey(HARDWARE_KEY_ALIAS);
 
-  const enrollmentChallenge = await getAttestationChallenge();
+  const enrollmentChallenge = await getAttestationChallenge({
+    deviceId,
+    appInstanceId: deviceId,
+    purpose: 'hardware-enrollment',
+  });
 
   const keyMaterial = await generateKeyWithAttestation(
     HARDWARE_KEY_ALIAS,
@@ -37,8 +44,10 @@ export async function enrollHardwareDevice(
     challengeId: enrollmentChallenge.challengeId,
     nonce: enrollmentChallenge.nonce,
     deviceId,
+    appInstanceId: deviceId,
     keyAlias: keyMaterial.alias,
     publicKeyBase64: keyMaterial.publicKeyBase64,
+    attestationEvidence: keyMaterial.hardwareSecurityLevel,
     certificateChainBase64: keyMaterial.certificateChainBase64,
     clientTimestampUtc: new Date().toISOString(),
   });
@@ -50,7 +59,11 @@ export async function verifyHardwareDevice(
   deviceId: string,
   benchmarkRunId?: string,
 ): Promise<HardwareAttestationResult> {
-  const verificationChallenge = await getAttestationChallenge();
+  const verificationChallenge = await getAttestationChallenge({
+    deviceId,
+    appInstanceId: deviceId,
+    purpose: 'hardware-verification',
+  });
 
   const signature = await signChallenge(
     HARDWARE_KEY_ALIAS,

@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.security.keystore.StrongBoxUnavailableException
 import android.util.Base64
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -38,18 +39,17 @@ class HardwareAttestationModule(
                 ANDROID_KEYSTORE
             )
 
-            val keySpec = KeyGenParameterSpec.Builder(
-                alias,
-                KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
-            )
-                .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
-                .setDigests(KeyProperties.DIGEST_SHA256)
-                .setAttestationChallenge(challenge)
-                .setUserAuthenticationRequired(false)
-                .build()
+            val strongBoxRequested = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+            var hardwareSecurityLevel = if (strongBoxRequested) "StrongBox" else "TrustedEnvironment"
 
-            keyPairGenerator.initialize(keySpec)
-            val keyPair = keyPairGenerator.generateKeyPair()
+            val keyPair = try {
+                keyPairGenerator.initialize(createKeySpec(alias, challenge, strongBoxRequested))
+                keyPairGenerator.generateKeyPair()
+            } catch (ex: StrongBoxUnavailableException) {
+                hardwareSecurityLevel = "TrustedEnvironment"
+                keyPairGenerator.initialize(createKeySpec(alias, challenge, false))
+                keyPairGenerator.generateKeyPair()
+            }
 
             val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE)
             keyStore.load(null)
@@ -76,6 +76,7 @@ class HardwareAttestationModule(
             result.putString("alias", alias)
             result.putString("publicKeyBase64", publicKeyBase64)
             result.putArray("certificateChainBase64", certificates)
+            result.putString("hardwareSecurityLevel", hardwareSecurityLevel)
 
             promise.resolve(result)
         } catch (ex: Exception) {
@@ -241,6 +242,27 @@ class HardwareAttestationModule(
         activityManager.getMemoryInfo(memoryInfo)
 
         return memoryInfo.totalMem
+    }
+
+    private fun createKeySpec(
+        alias: String,
+        challenge: ByteArray,
+        strongBoxBacked: Boolean
+    ): KeyGenParameterSpec {
+        val builder = KeyGenParameterSpec.Builder(
+            alias,
+            KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+        )
+            .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+            .setDigests(KeyProperties.DIGEST_SHA256)
+            .setAttestationChallenge(challenge)
+            .setUserAuthenticationRequired(false)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            builder.setIsStrongBoxBacked(strongBoxBacked)
+        }
+
+        return builder.build()
     }
 
     companion object {

@@ -22,7 +22,9 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<ISoftwareAttestationService, SoftwareAttestationService>();
 builder.Services.AddSingleton<IMeasurementStore, InMemoryMeasurementStore>();
 builder.Services.AddSingleton<IChallengeStore, InMemoryChallengeStore>();
+builder.Services.AddSingleton<IEnrolledDeviceStore, InMemoryEnrolledDeviceStore>();
 builder.Services.AddSingleton<IRegisteredDeviceKeyStore, InMemoryRegisteredDeviceKeyStore>();
+builder.Services.AddScoped<IHardwareAttestationEnrollmentService, HardwareAttestationEnrollmentService>();
 builder.Services.AddScoped<IHardwareAttestationService, HardwareAttestationService>();
 
 builder.Services.AddSingleton<IBenchmarkRunStore, InMemoryBenchmarkRunStore>();

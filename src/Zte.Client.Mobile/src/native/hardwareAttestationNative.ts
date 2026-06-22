@@ -6,6 +6,7 @@ export type HardwareKeyEnrollmentMaterial = {
   alias: string;
   publicKeyBase64: string;
   certificateChainBase64: string[];
+  hardwareSecurityLevel?: string;
 };
 
 export type HardwareSignatureResult = {

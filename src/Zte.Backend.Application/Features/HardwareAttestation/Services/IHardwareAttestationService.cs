@@ -6,10 +6,6 @@ namespace Zte.Backend.Application.Features.HardwareAttestation.Services;
 
 public interface IHardwareAttestationService
 {
-    VerificationResult Enroll(
-        HardwareEnrollmentRequest request,
-        int messageSizeBytes);
-
     VerificationResult Verify(
         HardwareVerificationRequest request,
         int messageSizeBytes);

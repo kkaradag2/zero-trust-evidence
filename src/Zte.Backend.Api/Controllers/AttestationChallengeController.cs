@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
+using Zte.Backend.Application.Common.Contracts;
 using Zte.Backend.Application.Common.Interfaces;
 using Zte.Backend.Domain.Challenges.Entities;
 
@@ -20,6 +21,20 @@ public sealed class AttestationChallengeController : ControllerBase
     [ProducesResponseType(typeof(AttestationChallenge), StatusCodes.Status200OK)]
     public ActionResult<AttestationChallenge> Create()
     {
+        return Ok(CreateChallenge());
+    }
+
+    [HttpPost]
+    [ProducesResponseType(typeof(AttestationChallenge), StatusCodes.Status200OK)]
+    public ActionResult<AttestationChallenge> Create([FromBody] CreateAttestationChallengeRequest request)
+    {
+        _ = request;
+
+        return Ok(CreateChallenge());
+    }
+
+    private AttestationChallenge CreateChallenge()
+    {
         var createdAtUtc = DateTime.UtcNow;
 
         var challenge = new AttestationChallenge(
@@ -30,7 +45,7 @@ public sealed class AttestationChallengeController : ControllerBase
 
         _challengeStore.Add(challenge);
 
-        return Ok(challenge);
+        return challenge;
     }
 
     private static string CreateNonce()

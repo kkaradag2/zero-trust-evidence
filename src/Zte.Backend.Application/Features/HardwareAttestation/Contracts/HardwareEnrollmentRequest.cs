@@ -2,7 +2,6 @@ namespace Zte.Backend.Application.Features.HardwareAttestation.Contracts;
 
 public sealed class HardwareEnrollmentRequest
 {
-
     public Guid? BenchmarkRunId { get; init; }
 
     public required string ChallengeId { get; init; }
@@ -11,9 +10,13 @@ public sealed class HardwareEnrollmentRequest
 
     public required string DeviceId { get; init; }
 
+    public string? AppInstanceId { get; init; }
+
     public required string KeyAlias { get; init; }
 
     public required string PublicKeyBase64 { get; init; }
+
+    public string? AttestationEvidence { get; init; }
 
     public required IReadOnlyList<string> CertificateChainBase64 { get; init; }
 
