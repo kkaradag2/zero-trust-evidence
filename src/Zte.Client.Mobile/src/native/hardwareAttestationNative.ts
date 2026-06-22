@@ -51,3 +51,27 @@ export async function deleteHardwareKey(alias: string): Promise<boolean> {
 
   return HardwareAttestation.deleteKey(alias);
 }
+
+export type DeviceIdentity = {
+  deviceId: string;
+  deviceName: string;
+  manufacturer: string;
+  brand: string;
+  model: string;
+  device: string;
+  product: string;
+  hardware: string;
+  androidVersion: string;
+  sdkInt: number;
+  supportedAbis: string[];
+  isEmulator: boolean;
+  cpuCoreCount: number;
+  totalMemoryBytes: number;
+};
+
+export async function getDeviceIdentity(): Promise<DeviceIdentity> {
+  ensureAndroid();
+  ensureNativeModule();
+
+  return HardwareAttestation.getDeviceIdentity();
+}

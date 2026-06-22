@@ -1,5 +1,8 @@
 package com.zteclientmobile.attestation
 
+import android.app.ActivityManager
+import android.content.Context
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -10,8 +13,10 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import java.security.KeyPairGenerator
 import java.security.KeyStore
+import java.security.MessageDigest
 import java.security.Signature
 import java.security.spec.ECGenParameterSpec
+import java.util.Locale
 
 class HardwareAttestationModule(
     reactContext: ReactApplicationContext
@@ -148,6 +153,94 @@ class HardwareAttestationModule(
                 ex
             )
         }
+    }
+
+
+    @ReactMethod
+    fun getDeviceIdentity(promise: Promise) {
+        try {
+            val rawIdentity = listOf(
+                Build.MANUFACTURER ?: "",
+                Build.BRAND ?: "",
+                Build.MODEL ?: "",
+                Build.DEVICE ?: "",
+                Build.PRODUCT ?: "",
+                Build.HARDWARE ?: "",
+                Build.FINGERPRINT ?: ""
+            ).joinToString(separator = "|")
+
+            val deviceId = sha256(rawIdentity).take(32)
+
+            val supportedAbis = Arguments.createArray()
+            Build.SUPPORTED_ABIS.forEach { abi ->
+                supportedAbis.pushString(abi)
+            }
+
+            val result = Arguments.createMap()
+            result.putString("deviceId", deviceId)
+            result.putString("deviceName", "${Build.MANUFACTURER} ${Build.MODEL}".trim())
+            result.putString("manufacturer", Build.MANUFACTURER ?: "")
+            result.putString("brand", Build.BRAND ?: "")
+            result.putString("model", Build.MODEL ?: "")
+            result.putString("device", Build.DEVICE ?: "")
+            result.putString("product", Build.PRODUCT ?: "")
+            result.putString("hardware", Build.HARDWARE ?: "")
+            result.putString("androidVersion", Build.VERSION.RELEASE ?: "")
+            result.putInt("sdkInt", Build.VERSION.SDK_INT)
+            result.putArray("supportedAbis", supportedAbis)
+            result.putBoolean("isEmulator", isProbablyEmulator())
+            result.putInt("cpuCoreCount", Runtime.getRuntime().availableProcessors())
+            result.putDouble("totalMemoryBytes", getTotalMemoryBytes().toDouble())
+
+            promise.resolve(result)
+        } catch (ex: Exception) {
+            promise.reject(
+                "DEVICE_IDENTITY_FAILED",
+                ex.message,
+                ex
+            )
+        }
+    }
+
+    private fun sha256(value: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+
+        return digest.joinToString("") { byte ->
+            "%02x".format(byte)
+        }
+    }
+
+    private fun isProbablyEmulator(): Boolean {
+        val fingerprint = Build.FINGERPRINT.lowercase(Locale.US)
+        val model = Build.MODEL.lowercase(Locale.US)
+        val manufacturer = Build.MANUFACTURER.lowercase(Locale.US)
+        val brand = Build.BRAND.lowercase(Locale.US)
+        val device = Build.DEVICE.lowercase(Locale.US)
+        val product = Build.PRODUCT.lowercase(Locale.US)
+        val hardware = Build.HARDWARE.lowercase(Locale.US)
+
+        return fingerprint.startsWith("generic") ||
+            fingerprint.contains("emulator") ||
+            model.contains("google_sdk") ||
+            model.contains("emulator") ||
+            model.contains("android sdk built for") ||
+            manufacturer.contains("genymotion") ||
+            brand.startsWith("generic") ||
+            device.startsWith("generic") ||
+            product.contains("sdk") ||
+            hardware.contains("goldfish") ||
+            hardware.contains("ranchu")
+    }
+
+    private fun getTotalMemoryBytes(): Long {
+        val activityManager = reactApplicationContext.getSystemService(
+            Context.ACTIVITY_SERVICE
+        ) as ActivityManager
+        val memoryInfo = ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memoryInfo)
+
+        return memoryInfo.totalMem
     }
 
     companion object {

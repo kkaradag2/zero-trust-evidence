@@ -1,7 +1,7 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
-using Zte.Backend.Application.Challenges;
-using Zte.Backend.Domain.Challenges;
+using Zte.Backend.Application.Common.Interfaces;
+using Zte.Backend.Domain.Challenges.Entities;
 
 namespace Zte.Backend.Api.Controllers;
 

@@ -3,9 +3,13 @@ import {
   SoftwareAttestationClientResult,
   SoftwareAttestationRequest,
   VerificationResult,
-    HardwareEnrollmentRequest,
+  HardwareEnrollmentRequest,
   HardwareVerificationRequest,
   HardwareAttestationResult,
+    BenchmarkRun,
+  BenchmarkType,
+  BenchmarkDeviceInfo,
+  FailBenchmarkRunRequest,
 } from '../types/attestation';
 
 const API_BASE_URL = 'http://10.0.2.2:5145';
@@ -109,6 +113,94 @@ export async function getAttestationChallenge(): Promise<AttestationChallengeRes
 
   if (!response.ok) {
     throw new Error(`Attestation challenge request failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+
+export async function createBenchmarkRun(
+  type: BenchmarkType = 'Comparative',
+  iterationCount?: number,
+  mobileDevice?: BenchmarkDeviceInfo,
+): Promise<BenchmarkRun> {
+  const request = {
+    type,
+    ...(iterationCount ? { iterationCount } : {}),
+    ...(mobileDevice ? { mobileDevice } : {}),
+  };
+
+  const response = await fetch(`${API_BASE_URL}/api/benchmarks`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Create benchmark run failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function completeBenchmarkRun(
+  benchmarkRunId: string,
+): Promise<BenchmarkRun> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/benchmarks/${benchmarkRunId}/complete`,
+    {
+      method: 'POST',
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Complete benchmark run failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function failBenchmarkRun(
+  benchmarkRunId: string,
+  errorMessage: string,
+): Promise<BenchmarkRun> {
+  const request: FailBenchmarkRunRequest = {
+    errorMessage,
+  };
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/benchmarks/${benchmarkRunId}/fail`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Fail benchmark run failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function verifySoftwareAttestation(
+  request: SoftwareAttestationRequest,
+): Promise<HardwareAttestationResult> {
+  const response = await fetch(`${API_BASE_URL}/api/attestation/software/verify`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Software attestation failed with status ${response.status}`);
   }
 
   return response.json();

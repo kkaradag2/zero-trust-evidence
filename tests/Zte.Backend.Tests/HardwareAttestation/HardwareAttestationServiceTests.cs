@@ -1,9 +1,12 @@
-﻿using System.Security.Cryptography;
-using Zte.Backend.Application.HardwareAttestation;
-using Zte.Backend.Domain.Attestation;
-using Zte.Backend.Domain.Challenges;
-using Zte.Backend.Infrastructure.Challenges;
-using Zte.Backend.Infrastructure.HardwareAttestation;
+using System.Security.Cryptography;
+using Zte.Backend.Application.Features.HardwareAttestation.Contracts;
+using Zte.Backend.Application.Features.HardwareAttestation.Models;
+using Zte.Backend.Application.Features.HardwareAttestation.Services;
+using Zte.Backend.Domain.Attestation.Enums;
+using Zte.Backend.Domain.Attestation.ValueObjects;
+using Zte.Backend.Domain.Challenges.Entities;
+using Zte.Backend.Infrastructure.Persistence.Challenges;
+using Zte.Backend.Infrastructure.Persistence.HardwareAttestation;
 
 namespace Zte.Backend.Tests.HardwareAttestation;
 

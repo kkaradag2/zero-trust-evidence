@@ -1,7 +1,9 @@
-﻿using Zte.Backend.Application.Challenges;
-using Zte.Backend.Application.SoftwareAttestation;
-using Zte.Backend.Domain.Attestation;
-using Zte.Backend.Domain.Challenges;
+using Zte.Backend.Application.Common.Interfaces;
+using Zte.Backend.Application.Features.SoftwareAttestation.Contracts;
+using Zte.Backend.Application.Features.SoftwareAttestation.Services;
+using Zte.Backend.Domain.Attestation.Enums;
+using Zte.Backend.Domain.Attestation.ValueObjects;
+using Zte.Backend.Domain.Challenges.Entities;
 
 namespace Zte.Backend.Tests.SoftwareAttestation;
 
@@ -27,6 +29,7 @@ public sealed class SoftwareAttestationServiceTests
         var service = new SoftwareAttestationService(challengeStore);
 
         var request = new SoftwareAttestationRequest(
+            BenchmarkRunId: null,
             ChallengeId: challenge.ChallengeId,
             Nonce: challenge.Nonce,
             DeviceId: "test-device-001",
@@ -79,6 +82,7 @@ public sealed class SoftwareAttestationServiceTests
         var service = new SoftwareAttestationService(challengeStore);
 
         var request = new SoftwareAttestationRequest(
+            BenchmarkRunId: null,
             ChallengeId: challenge.ChallengeId,
             Nonce: challenge.Nonce,
             DeviceId: "test-device-002",
@@ -126,6 +130,7 @@ public sealed class SoftwareAttestationServiceTests
         var service = new SoftwareAttestationService(challengeStore);
 
         var request = new SoftwareAttestationRequest(
+             BenchmarkRunId: null,
             DeviceId: "test-device-003",
             Platform: "android",
             OsVersion: "14",

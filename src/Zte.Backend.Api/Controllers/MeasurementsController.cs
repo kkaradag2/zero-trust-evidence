@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Zte.Backend.Application.Measurements;
-using Zte.Backend.Domain.Measurements;
+using Microsoft.AspNetCore.Mvc;
+using Zte.Backend.Application.Common.Interfaces;
+using Zte.Backend.Domain.Measurements.Entities;
+using Zte.Backend.Domain.Measurements.Enums;
 
 namespace Zte.Backend.Api.Controllers;
 

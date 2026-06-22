@@ -19,9 +19,10 @@ export type HardwareAttestationFlowResult = {
   verificationResult: HardwareAttestationResult;
 };
 
-export async function runHardwareAttestationFlow(
+export async function enrollHardwareDevice(
   deviceId: string,
-): Promise<HardwareAttestationFlowResult> {
+  benchmarkRunId?: string,
+): Promise<HardwareAttestationResult> {
   await deleteHardwareKey(HARDWARE_KEY_ALIAS);
 
   const enrollmentChallenge = await getAttestationChallenge();
@@ -32,6 +33,7 @@ export async function runHardwareAttestationFlow(
   );
 
   const enrollmentResult = await enrollHardwareAttestation({
+    benchmarkRunId,
     challengeId: enrollmentChallenge.challengeId,
     nonce: enrollmentChallenge.nonce,
     deviceId,
@@ -41,6 +43,13 @@ export async function runHardwareAttestationFlow(
     clientTimestampUtc: new Date().toISOString(),
   });
 
+  return enrollmentResult;
+}
+
+export async function verifyHardwareDevice(
+  deviceId: string,
+  benchmarkRunId?: string,
+): Promise<HardwareAttestationResult> {
   const verificationChallenge = await getAttestationChallenge();
 
   const signature = await signChallenge(
@@ -49,6 +58,7 @@ export async function runHardwareAttestationFlow(
   );
 
   const verificationResult = await verifyHardwareAttestation({
+    benchmarkRunId,
     challengeId: verificationChallenge.challengeId,
     nonce: verificationChallenge.nonce,
     deviceId,
@@ -56,6 +66,16 @@ export async function runHardwareAttestationFlow(
     signatureBase64: signature.signatureBase64,
     clientTimestampUtc: new Date().toISOString(),
   });
+
+  return verificationResult;
+}
+
+export async function runHardwareAttestationFlow(
+  deviceId: string,
+  benchmarkRunId?: string,
+): Promise<HardwareAttestationFlowResult> {
+  const enrollmentResult = await enrollHardwareDevice(deviceId, benchmarkRunId);
+  const verificationResult = await verifyHardwareDevice(deviceId, benchmarkRunId);
 
   return {
     enrollmentResult,

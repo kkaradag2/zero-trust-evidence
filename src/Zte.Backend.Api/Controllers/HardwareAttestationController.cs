@@ -1,9 +1,13 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
-using Zte.Backend.Application.HardwareAttestation;
-using Zte.Backend.Application.Measurements;
-using Zte.Backend.Domain.Attestation;
-using Zte.Backend.Domain.Measurements;
+using Zte.Backend.Application.Features.HardwareAttestation.Contracts;
+using Zte.Backend.Application.Features.HardwareAttestation.Models;
+using Zte.Backend.Application.Features.HardwareAttestation.Services;
+using Zte.Backend.Application.Common.Interfaces;
+using Zte.Backend.Domain.Attestation.Enums;
+using Zte.Backend.Domain.Attestation.ValueObjects;
+using Zte.Backend.Domain.Measurements.Entities;
+using Zte.Backend.Domain.Measurements.Enums;
 
 namespace Zte.Backend.Api.Controllers;
 
@@ -32,7 +36,10 @@ public sealed class HardwareAttestationController : ControllerBase
             request,
             messageSizeBytes);
 
-        AddMeasurement(result);
+        AddMeasurement(
+    result,
+    request.BenchmarkRunId,
+    MeasurementPhase.HardwareEnrollment);
 
         return Ok(result);
     }
@@ -47,15 +54,24 @@ public sealed class HardwareAttestationController : ControllerBase
             request,
             messageSizeBytes);
 
-        AddMeasurement(result);
+        AddMeasurement(
+     result,
+     request.BenchmarkRunId,
+     MeasurementPhase.HardwareVerification);
+
 
         return Ok(result);
     }
 
-    private void AddMeasurement(VerificationResult result)
+    private void AddMeasurement(
+        VerificationResult result,
+        Guid? benchmarkRunId,
+        MeasurementPhase phase)
     {
         var measurement = new VerificationMeasurement(
             Id: Guid.NewGuid(),
+            BenchmarkRunId: benchmarkRunId,
+            Phase: phase,
             AttestationType: result.AttestationType,
             Accepted: result.Accepted,
             RiskLevel: result.RiskLevel,

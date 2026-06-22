@@ -8,37 +8,49 @@ import {
 
 import { SoftwareAttestationScreen } from './src/screens/SoftwareAttestationScreen';
 import { HardwareAttestationScreen } from './src/screens/HardwareAttestationScreen';
+import { BenchmarkScreen } from './src/screens/BenchmarkScreen';
 
-type ActiveScreen = 'software' | 'hardware';
+type ActiveScreen = 'software' | 'hardware' | 'benchmark';
 
 function App(): React.JSX.Element {
-  const [activeScreen, setActiveScreen] = useState<ActiveScreen>('software');
+  const [activeScreen, setActiveScreen] = useState<ActiveScreen>('benchmark');
 
   return (
     <SafeAreaView style={styles.root}>
-      <View style={styles.tabContainer}>
-        <View style={styles.tabButton}>
-          <Button
-            title="Software"
-            onPress={() => setActiveScreen('software')}
-            disabled={activeScreen === 'software'}
-          />
-        </View>
+<View style={styles.tabContainer}>
+  <View style={styles.tabButton}>
+    <Button
+      title="Software"
+      onPress={() => setActiveScreen('software')}
+      disabled={activeScreen === 'software'}
+    />
+  </View>
 
-        <View style={styles.tabButton}>
-          <Button
-            title="Hardware"
-            onPress={() => setActiveScreen('hardware')}
-            disabled={activeScreen === 'hardware'}
-          />
-        </View>
-      </View>
+  <View style={styles.tabButton}>
+    <Button
+      title="Hardware"
+      onPress={() => setActiveScreen('hardware')}
+      disabled={activeScreen === 'hardware'}
+    />
+  </View>
+
+  <View style={styles.tabButton}>
+    <Button
+      title="Benchmark"
+      onPress={() => setActiveScreen('benchmark')}
+      disabled={activeScreen === 'benchmark'}
+    />
+  </View>
+</View>
 
       {activeScreen === 'software' ? (
         <SoftwareAttestationScreen />
-      ) : (
+      ) : activeScreen === 'hardware' ? (
         <HardwareAttestationScreen />
+      ) : (
+        <BenchmarkScreen />
       )}
+
     </SafeAreaView>
   );
 }

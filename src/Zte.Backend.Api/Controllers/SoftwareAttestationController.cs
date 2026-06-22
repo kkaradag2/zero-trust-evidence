@@ -1,9 +1,12 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
-using Zte.Backend.Application.SoftwareAttestation;
-using Zte.Backend.Domain.Attestation;
-using Zte.Backend.Application.Measurements;
-using Zte.Backend.Domain.Measurements;
+using Zte.Backend.Application.Features.SoftwareAttestation.Contracts;
+using Zte.Backend.Application.Features.SoftwareAttestation.Services;
+using Zte.Backend.Domain.Attestation.Enums;
+using Zte.Backend.Domain.Attestation.ValueObjects;
+using Zte.Backend.Application.Common.Interfaces;
+using Zte.Backend.Domain.Measurements.Entities;
+using Zte.Backend.Domain.Measurements.Enums;
 
 namespace Zte.Backend.Api.Controllers;
 
@@ -30,15 +33,17 @@ public sealed class SoftwareAttestationController : ControllerBase
         var result = _softwareAttestationService.Verify(request, messageSizeBytes);
 
         var measurement = new VerificationMeasurement(
-            Id: Guid.NewGuid(),
-            AttestationType: result.AttestationType,
-            Accepted: result.Accepted,
-            RiskLevel: result.RiskLevel,
-            VerificationTimeMs: result.VerificationTimeMs,
-            VerificationTimeMicroseconds: result.VerificationTimeMicroseconds,
-            MessageSizeBytes: result.MessageSizeBytes,
-            ProcessingStepCount: result.ProcessingStepCount,
-            CreatedAtUtc: DateTime.UtcNow);
+           Id: Guid.NewGuid(),
+           BenchmarkRunId: request.BenchmarkRunId,
+           Phase: MeasurementPhase.SoftwareVerification,
+           AttestationType: result.AttestationType,
+           Accepted: result.Accepted,
+           RiskLevel: result.RiskLevel,
+           VerificationTimeMs: result.VerificationTimeMs,
+           VerificationTimeMicroseconds: result.VerificationTimeMicroseconds,
+           MessageSizeBytes: result.MessageSizeBytes,
+           ProcessingStepCount: result.ProcessingStepCount,
+           CreatedAtUtc: DateTime.UtcNow);
 
         _measurementStore.Add(measurement);
 
