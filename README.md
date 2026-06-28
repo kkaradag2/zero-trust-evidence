@@ -1,125 +1,264 @@
 # Zero Trust Evidence
 
-Zero Trust Evidence is a prototype project for comparing two mobile client attestation approaches in a simplified Android client-backend verification scenario:
+Zero Trust Evidence is a prototype platform for measuring the runtime cost of
+Android hardware-backed attestation in a Zero Trust API access flow.
 
-1. Software/context-aware attestation
-2. Hardware/root-of-trust-based attestation
+The project focuses on a cost-freshness benchmark: how often a mobile client
+refreshes hardware-backed proof, how many API requests reuse an existing proof,
+and how much latency is introduced by each fresh attestation step.
 
-The project evaluates verification time, verification message size, and client-server processing step count.
+## Research Focus
 
-## Attestation flows
+The benchmark is designed around one question:
 
-### Software attestation
+> What is the runtime cost of keeping Android hardware-backed attestation
+> evidence fresh enough for Zero Trust API access?
 
-Software attestation is kept separate from hardware-backed enrollment. The mobile
-client requests a backend challenge, returns the challenge id and nonce with
-context signals such as platform, app version, emulator state, and rooted state,
-and the backend verifies those signals with `SoftwareAttestationService`.
+The measured runtime path is:
 
-Implemented:
+1. The Android client requests an attestation challenge from the backend.
+2. The client signs the challenge with an Android Keystore hardware-backed key.
+3. The backend verifies the signed proof.
+4. The client records per-request timing rows for the benchmark policy.
+5. The backend stores the benchmark run and runtime measurement rows.
+6. The embedded dashboard visualizes the results and exports the dataset as CSV.
 
-- Backend-issued challenge id and nonce validation.
-- Challenge expiration and single-use checks.
-- Rule-based risk evaluation for software/device posture signals.
+Enrollment is treated as setup. It is required before runtime verification, but
+it is not included in runtime cost averages.
 
-This flow is useful as a context-aware baseline, but it does not prove that a
-private key was generated or protected by device hardware.
+## System Roles
 
-### Hardware-backed enrollment
-
-Hardware-backed enrollment is handled by a dedicated API:
-
-```http
-POST /api/hardware-attestation/enroll
+```text
+Mobile app         Benchmark runner
+Backend API        Benchmark and measurement record system
+Embedded dashboard Result inspection and CSV export
 ```
 
-The legacy benchmark route remains available:
+The mobile app owns benchmark execution. The backend owns durable in-memory
+recording for the current process. The dashboard is read-only except for CSV
+export generated from stored runtime measurement rows.
 
-```http
-POST /api/attestation/hardware/enroll
+## Benchmark Policies
+
+The mobile benchmark runs a fixed number of request iterations and applies a
+freshness policy:
+
+| Policy | Meaning |
+| --- | --- |
+| Every request | A fresh hardware attestation is performed for every request. |
+| Every 3 requests | One fresh proof is generated every third request. |
+| Every 5 requests | One fresh proof is generated every fifth request. |
+| Every 10 requests | One fresh proof is generated every tenth request. |
+| Session only | One fresh proof is generated at the start; later rows reuse it. |
+
+Every request produces one runtime measurement row. Reuse rows are stored with
+zero proof cost so the exported dataset keeps the exact request count and policy
+shape.
+
+## Runtime Measurement Model
+
+Each runtime row records:
+
+- `policyK`
+- `policyLabel`
+- `runIndex`
+- `totalRequests`
+- `attestationPerformed`
+- `challengeFetchMs`
+- `deviceSigningMs`
+- `backendVerificationMs`
+- `freshProofCostMs`
+- `operationTotalMs`
+- `success`
+- `errorMessage`
+- `timestamp`
+
+For fresh rows:
+
+```text
+freshProofCostMs = challengeFetchMs + deviceSigningMs + backendVerificationMs
 ```
 
-The mobile client now requests an enrollment challenge with device/app context,
-generates an Android Keystore EC key using the backend nonce as the attestation
-challenge, prefers StrongBox when available, falls back to TEE-backed Keystore
-generation, and submits:
+For reuse rows, proof timing fields are `0` and `attestationPerformed` is
+`false`.
 
-- `challengeId`
-- `nonce`
-- `deviceId`
-- `appInstanceId`
-- `keyAlias`
-- `publicKeyBase64`
-- `attestationEvidence`
-- `certificateChainBase64`
-
-The backend stores accepted devices through an enrolled-device store with the
-enrolled device id, device/app id, public key, certificate chain, verification
-steps, warnings, hardware/security level metadata when available, and creation
-time.
-
-Fully implemented:
-
-- Dedicated hardware enrollment service and API DTOs.
-- Challenge id, nonce, expiration, and single-use validation.
-- EC SubjectPublicKeyInfo parsing for the submitted public key.
-- Required certificate-chain presence.
-- Structural parsing of each submitted certificate as X.509.
-- Leaf certificate public key comparison against the submitted public key.
-- Android Key Attestation extension challenge extraction when the extension is
-  present and parseable.
-- Attestation challenge comparison against the backend nonce when extracted.
-- Deterministic duplicate device/key handling by returning the existing enrolled
-  device id with a warning.
-- Structured enrollment result containing `accepted`, `enrolledDeviceId`,
-  `riskLevel`, `verificationSteps`, `reasons`, and `warnings`.
-
-Partial/TODO:
-
-- Full Android Key Attestation authorization-list validation is not complete.
-  The code explicitly marks this as a TODO and returns a medium-risk accepted
-  result with warnings when only structural certificate validation succeeds.
-- Certificate chain trust anchoring to Google/Android attestation roots is not
-  implemented. Invalid or missing certificate chains are rejected, but untrusted
-  yet structurally valid development certificates can be used for local tests.
-- Hardware-backed key properties beyond parsed Android security-level enum
-  values are not fully enforced yet.
-
-## Structure
+## Architecture
 
 ```text
 src/
-  Zte.Backend.Api
-  Zte.Backend.Application
-  Zte.Backend.Domain
-  Zte.Dashboard.Client
-  Zte.Backend.Infrastructure
+  Zte.Backend.Api              ASP.NET Core API and embedded dashboard host
+  Zte.Backend.Application      Application contracts and attestation services
+  Zte.Backend.Domain           Domain entities and benchmark models
+  Zte.Backend.Infrastructure   In-memory stores for benchmark and measurement data
+  Zte.Client.Mobile            React Native Android benchmark runner
+  Zte.Dashboard.Client         Vite React dashboard client
 
 tests/
-  Zte.Backend.Tests
-
-docs/
-  Project and experiment documentation
-
-artifacts/
-  Screenshots and raw measurement outputs
+  Zte.Backend.Tests            Backend unit and controller tests
 ```
+
+## Key API Endpoints
+
+Benchmark lifecycle:
+
+```http
+POST /api/benchmarks
+GET  /api/benchmarks
+GET  /api/benchmarks/{id}
+POST /api/benchmarks/{id}/complete
+POST /api/benchmarks/{id}/fail
+```
+
+Runtime measurement storage:
+
+```http
+POST /api/benchmarks/{id}/runtime-measurements
+GET  /api/benchmarks/{id}/runtime-measurements
+```
+
+Attestation flow:
+
+```http
+POST /api/attestation/challenge
+POST /api/hardware-attestation/enroll
+POST /api/attestation/hardware/verify
+```
+
+Legacy backend-side verification measurements are still present internally for
+debugging, but the dashboard and CSV export are centered on runtime measurement
+rows.
 
 ## Dashboard
 
-The embedded dashboard client lives in `src/Zte.Dashboard.Client`. It is a Vite
-React app that builds static files into `src/Zte.Backend.Api/wwwroot/dashboard`
-and is served by the API at `/dashboard`.
+The dashboard is a Vite React app embedded into the ASP.NET Core API. It is
+served from:
+
+```text
+http://localhost:5145/dashboard
+```
+
+The detail page shows:
+
+- benchmark policy
+- total request count
+- fresh attestation count
+- saved runtime measurement count
+- average challenge fetch time
+- average device signing time
+- average backend verification time
+- average fresh proof cost
+- runtime measurement table
+- CSV export for the paper dataset
+
+CSV export is generated only from runtime measurement rows and includes
+benchmark, mobile device, backend system, policy, and timing context.
+
+## Getting Started
+
+### Prerequisites
+
+- .NET SDK compatible with the solution
+- Node.js 22.11 or newer for the mobile app
+- npm
+- Android Studio or Android SDK tooling for running the React Native Android app
+
+### Restore and test the backend
+
+```powershell
+dotnet restore
+dotnet test
+```
+
+### Build the embedded dashboard
 
 ```powershell
 cd src\Zte.Dashboard.Client
 npm install
 npm run build
+```
 
+The dashboard build writes static assets to:
+
+```text
+src/Zte.Backend.Api/wwwroot/dashboard
+```
+
+### Run the backend API
+
+```powershell
 cd ..\..
 dotnet run --project src\Zte.Backend.Api
 ```
 
-Open `http://localhost:5145/dashboard` after starting the backend. During UI
-development, the dashboard can also run separately with `npm run dev`; API calls
-to `/api` are proxied to `http://localhost:5145`.
+Default HTTP URL:
+
+```text
+http://localhost:5145
+```
+
+Dashboard URL:
+
+```text
+http://localhost:5145/dashboard
+```
+
+### Run the mobile benchmark app
+
+```powershell
+cd src\Zte.Client.Mobile
+npm install
+npm run android
+```
+
+The Android emulator uses `http://10.0.2.2:5145` to reach the backend running on
+the host machine.
+
+## Development Commands
+
+Backend:
+
+```powershell
+dotnet build
+dotnet test
+```
+
+Dashboard:
+
+```powershell
+cd src\Zte.Dashboard.Client
+npm run build
+```
+
+Mobile:
+
+```powershell
+cd src\Zte.Client.Mobile
+npm test -- --runInBand
+npm run lint
+npx tsc --noEmit
+```
+
+## Current Limitations
+
+- Stores are in-memory and reset when the backend process restarts.
+- Android Key Attestation certificate chain validation is structural and not a
+  complete production trust-chain validation against Google/Android roots.
+- The project is a research prototype, not a production Zero Trust enforcement
+  gateway.
+- Dashboard CSV export is intended for benchmark analysis, not long-term data
+  warehousing.
+
+## Intended Output
+
+After running a benchmark, the dashboard should make it easy to verify:
+
+```text
+Saved Measurements = Total Requests
+Fresh Attestations = expected count for the selected policy
+Avg Fresh Proof Cost ~= Avg Challenge Fetch
+                       + Avg Device Signing
+                       + Avg Backend Verification
+```
+
+The exported CSV provides one row per benchmark request iteration and can be
+used directly for cost-freshness analysis in the accompanying paper or report.
