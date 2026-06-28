@@ -1,45 +1,5 @@
-
-export type AttestationChallenge = {
-  challengeId: string;
-  nonce: string;
-  createdAtUtc: string;
-  expiresAtUtc: string;
-};
-
-export type SoftwareAttestationRequest = {
-   benchmarkRunId?: string;
-   challengeId: string;
-  nonce: string;
-  deviceId: string;
-  platform: string;
-  osVersion: string;
-  appVersion: string;
-  deviceBrand: string;
-  deviceModel: string;
-  isEmulator: boolean;
-  isRooted: boolean;
-  clientTimestampUtc: string;
-};
-
-export type VerificationResult = {
-  accepted: boolean;
-  attestationType: string;
-  riskLevel: string;
-  processingStepCount: number;
-  verificationTimeMs: number;
-  verificationTimeMicroseconds: number;
-  messageSizeBytes: number;
-  reasons: string[];
-};
-
-export type SoftwareAttestationClientResult = {
-  request: SoftwareAttestationRequest;
-  response: VerificationResult;
-  clientRoundTripTimeMs: number;
-};
-
 export type HardwareEnrollmentRequest = {
-   benchmarkRunId?: string;
+  benchmarkRunId?: string;
   challengeId: string;
   nonce: string;
   deviceId: string;
@@ -87,8 +47,7 @@ export type HardwareEnrollmentResult = {
   messageSizeBytes: number;
 };
 
-
-export type BenchmarkType = 'Comparative' | 'Software' | 'Hardware';
+export type BenchmarkType = 'Hardware';
 
 export type BenchmarkStatus = 'Running' | 'Completed' | 'Failed';
 
@@ -98,7 +57,6 @@ export type BenchmarkRun = {
   type: BenchmarkType;
   status: BenchmarkStatus;
   iterationCount: number;
-  softwareIterationCount: number;
   hardwareVerificationIterationCount: number;
   hardwareEnrollmentCount: number;
   startedAtUtc: string;

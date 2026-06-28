@@ -1,7 +1,6 @@
 using System.Text.Json.Serialization;
 using Zte.Backend.Application.Common.Interfaces;
 using Zte.Backend.Application.Features.HardwareAttestation.Services;
-using Zte.Backend.Application.Features.SoftwareAttestation.Services;
 using Zte.Backend.Infrastructure.Persistence.Benchmarks;
 using Zte.Backend.Infrastructure.Persistence.Challenges;
 using Zte.Backend.Infrastructure.Persistence.HardwareAttestation;
@@ -19,8 +18,8 @@ builder.Services
 
 builder.Services.AddOpenApi();
 
-builder.Services.AddScoped<ISoftwareAttestationService, SoftwareAttestationService>();
 builder.Services.AddSingleton<IMeasurementStore, InMemoryMeasurementStore>();
+builder.Services.AddSingleton<IRuntimeBenchmarkMeasurementStore, InMemoryRuntimeBenchmarkMeasurementStore>();
 builder.Services.AddSingleton<IChallengeStore, InMemoryChallengeStore>();
 builder.Services.AddSingleton<IEnrolledDeviceStore, InMemoryEnrolledDeviceStore>();
 builder.Services.AddSingleton<IRegisteredDeviceKeyStore, InMemoryRegisteredDeviceKeyStore>();
