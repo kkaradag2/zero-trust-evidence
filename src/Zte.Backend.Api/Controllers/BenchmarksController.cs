@@ -18,11 +18,16 @@ public sealed class BenchmarksController : ControllerBase
 
     private readonly IBenchmarkRunStore _benchmarkRunStore;
     private readonly IMeasurementStore _measurementStore;
+    private readonly IRuntimeBenchmarkMeasurementStore _runtimeBenchmarkMeasurementStore;
 
-    public BenchmarksController(IBenchmarkRunStore benchmarkRunStore, IMeasurementStore measurementStore)
+    public BenchmarksController(
+        IBenchmarkRunStore benchmarkRunStore,
+        IMeasurementStore measurementStore,
+        IRuntimeBenchmarkMeasurementStore runtimeBenchmarkMeasurementStore)
     {
         _benchmarkRunStore = benchmarkRunStore;
         _measurementStore = measurementStore;
+        _runtimeBenchmarkMeasurementStore = runtimeBenchmarkMeasurementStore;
     }
 
     [HttpPost]
@@ -121,6 +126,62 @@ public sealed class BenchmarksController : ControllerBase
         return Ok(measurements);
     }
 
+    [HttpPost("{id:guid}/runtime-measurements")]
+    [ProducesResponseType(typeof(SaveRuntimeMeasurementsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<SaveRuntimeMeasurementsResponse> SaveRuntimeMeasurements(
+        Guid id,
+        [FromBody] IReadOnlyList<RuntimeMeasurementRequest> requests)
+    {
+        var run = _benchmarkRunStore.Find(id);
+
+        if (run is null)
+        {
+            return NotFound();
+        }
+
+        if (requests is null)
+        {
+            return BadRequest("Runtime measurement request body is required.");
+        }
+
+        var validationErrors = ValidateRuntimeMeasurementRequests(requests);
+
+        if (validationErrors.Count > 0)
+        {
+            return BadRequest(validationErrors);
+        }
+
+        var createdAtUtc = DateTimeOffset.UtcNow;
+        var measurements = requests
+            .Select(request => ToRuntimeBenchmarkMeasurement(id, request, createdAtUtc))
+            .ToList();
+
+        _runtimeBenchmarkMeasurementStore.AddRange(measurements);
+
+        return Ok(new SaveRuntimeMeasurementsResponse(
+            BenchmarkRunId: id,
+            SavedCount: measurements.Count));
+    }
+
+    [HttpGet("{id:guid}/runtime-measurements")]
+    [ProducesResponseType(typeof(IReadOnlyList<RuntimeBenchmarkMeasurement>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<IReadOnlyList<RuntimeBenchmarkMeasurement>> GetRuntimeMeasurements(Guid id)
+    {
+        var run = _benchmarkRunStore.Find(id);
+
+        if (run is null)
+        {
+            return NotFound();
+        }
+
+        var measurements = _runtimeBenchmarkMeasurementStore.GetByBenchmarkRunId(id);
+
+        return Ok(measurements);
+    }
+
     private static BenchmarkBackendSystemInfo GetBackendSystemInfo()
     {
         var memoryInfo = GC.GetGCMemoryInfo();
@@ -135,5 +196,90 @@ public sealed class BenchmarksController : ControllerBase
                 ? memoryInfo.TotalAvailableMemoryBytes
                 : null
         };
+    }
+
+    private static IReadOnlyList<string> ValidateRuntimeMeasurementRequests(
+        IReadOnlyList<RuntimeMeasurementRequest> requests)
+    {
+        var errors = new List<string>();
+
+        for (var index = 0; index < requests.Count; index++)
+        {
+            var request = requests[index];
+            var prefix = $"Measurement {index + 1}";
+
+            if (request.RunIndex <= 0)
+            {
+                errors.Add($"{prefix}: runIndex must be greater than zero.");
+            }
+
+            if (request.TotalRequests <= 0)
+            {
+                errors.Add($"{prefix}: totalRequests must be greater than zero.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.PolicyK))
+            {
+                errors.Add($"{prefix}: policyK is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.PolicyLabel))
+            {
+                errors.Add($"{prefix}: policyLabel is required.");
+            }
+
+            if (request.ChallengeFetchMs < 0)
+            {
+                errors.Add($"{prefix}: challengeFetchMs cannot be negative.");
+            }
+
+            if (request.DeviceSigningMs < 0)
+            {
+                errors.Add($"{prefix}: deviceSigningMs cannot be negative.");
+            }
+
+            if (request.BackendVerificationMs < 0)
+            {
+                errors.Add($"{prefix}: backendVerificationMs cannot be negative.");
+            }
+
+            if (request.FreshProofCostMs < 0)
+            {
+                errors.Add($"{prefix}: freshProofCostMs cannot be negative.");
+            }
+
+            if (request.OperationTotalMs < 0)
+            {
+                errors.Add($"{prefix}: operationTotalMs cannot be negative.");
+            }
+        }
+
+        return errors;
+    }
+
+    private static RuntimeBenchmarkMeasurement ToRuntimeBenchmarkMeasurement(
+        Guid benchmarkRunId,
+        RuntimeMeasurementRequest request,
+        DateTimeOffset createdAtUtc)
+    {
+        return new RuntimeBenchmarkMeasurement(
+            Id: Guid.NewGuid(),
+            BenchmarkRunId: benchmarkRunId,
+            PolicyK: request.PolicyK!.Trim(),
+            PolicyLabel: request.PolicyLabel!.Trim(),
+            RunIndex: request.RunIndex,
+            TotalRequests: request.TotalRequests,
+            AttestationPerformed: request.AttestationPerformed,
+            ChallengeFetchMs: request.ChallengeFetchMs,
+            DeviceSigningMs: request.DeviceSigningMs,
+            BackendVerificationMs: request.BackendVerificationMs,
+            FreshProofCostMs: request.FreshProofCostMs,
+            OperationTotalMs: request.OperationTotalMs,
+            RequestPayloadBytes: request.RequestPayloadBytes,
+            ResponsePayloadBytes: request.ResponsePayloadBytes,
+            Success: request.Success,
+            ErrorMessage: request.ErrorMessage,
+            CreatedAtUtc: createdAtUtc,
+            ClientTimestampUtc: request.Timestamp);
     }
 }

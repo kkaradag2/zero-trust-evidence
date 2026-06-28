@@ -29,7 +29,7 @@ function App() {
 
   const title = useMemo(() => {
     if (route.page === 'benchmark-detail') {
-      return 'Benchmark Detail';
+      return 'Runtime Hardware Attestation Benchmark';
     }
 
     return 'Benchmark Runs';
@@ -37,10 +37,10 @@ function App() {
 
   const subtitle = useMemo(() => {
     if (route.page === 'benchmark-detail') {
-      return 'Review verification phases and raw measurements.';
+      return 'Cost-freshness measurement detail for Android hardware-backed attestation.';
     }
 
-    return 'Inspect attestation benchmark runs captured by the backend.';
+    return 'Inspect Android hardware-backed attestation benchmark runs.';
   }, [route]);
 
   const navigateTo = (path: string) => {

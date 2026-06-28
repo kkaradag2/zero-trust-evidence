@@ -4,7 +4,6 @@ export type BenchmarkRun = {
   type: string;
   status: string;
   iterationCount: number;
-  softwareIterationCount: number;
   hardwareVerificationIterationCount: number;
   hardwareEnrollmentCount: number;
   startedAtUtc: string;
@@ -41,25 +40,26 @@ export type BenchmarkBackendSystemInfo = {
   totalAvailableMemoryBytes: number | null;
 };
 
-export type VerificationMeasurement = {
+export type RuntimeBenchmarkMeasurement = {
   id: string;
-  benchmarkRunId: string | null;
-  phase: MeasurementPhase | null;
-  attestationType: string;
-  accepted: boolean;
-  riskLevel: string;
-  verificationTimeMs: number;
-  verificationTimeMicroseconds: number;
-  messageSizeBytes: number;
-  processingStepCount: number;
+  benchmarkRunId: string;
+  policyK: string;
+  policyLabel: string;
+  runIndex: number;
+  totalRequests: number;
+  attestationPerformed: boolean;
+  challengeFetchMs: number;
+  deviceSigningMs: number;
+  backendVerificationMs: number;
+  freshProofCostMs: number;
+  operationTotalMs: number;
+  requestPayloadBytes: number;
+  responsePayloadBytes: number;
+  success: boolean;
+  errorMessage: string | null;
   createdAtUtc: string;
+  clientTimestampUtc: string;
 };
-
-export type MeasurementPhase =
-  | 'SoftwareVerification'
-  | 'HardwareEnrollment'
-  | 'HardwareVerification'
-  | string;
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(path, {
@@ -83,10 +83,10 @@ export function getBenchmark(id: string): Promise<BenchmarkRun> {
   return getJson<BenchmarkRun>(`/api/benchmarks/${encodeURIComponent(id)}`);
 }
 
-export function listBenchmarkMeasurements(
+export function listBenchmarkRuntimeMeasurements(
   id: string,
-): Promise<VerificationMeasurement[]> {
-  return getJson<VerificationMeasurement[]>(
-    `/api/benchmarks/${encodeURIComponent(id)}/measurements`,
+): Promise<RuntimeBenchmarkMeasurement[]> {
+  return getJson<RuntimeBenchmarkMeasurement[]>(
+    `/api/benchmarks/${encodeURIComponent(id)}/runtime-measurements`,
   );
 }

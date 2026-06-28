@@ -3,42 +3,36 @@ import { useEffect, useMemo, useState } from 'react';
 
 import {
   getBenchmark,
-  listBenchmarkMeasurements,
+  listBenchmarkRuntimeMeasurements,
   type BenchmarkRun,
-  type MeasurementPhase,
-  type VerificationMeasurement,
+  type RuntimeBenchmarkMeasurement,
 } from '../api/benchmarks';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
 import { LoadingState } from '../components/LoadingState';
 import { MetricCard } from '../components/MetricCard';
-import { StatusBadge } from '../components/StatusBadge';
-import { formatBytes, formatDateTime, formatDuration, formatNumber } from '../format';
+import {
+  formatBytes,
+  formatDateTime,
+  formatDuration,
+  formatNumber,
+} from '../format';
 import { benchmarkListPath } from '../routes';
-
-const comparisonPhases: MeasurementPhase[] = [
-  'SoftwareVerification',
-  'HardwareEnrollment',
-  'HardwareVerification',
-];
-
-type PhaseAggregate = {
-  phase: MeasurementPhase;
-  count: number;
-  acceptedCount: number;
-  successRate: number | null;
-  averageTimeMs: number | null;
-  minimumTimeMs: number | null;
-  maximumTimeMs: number | null;
-  standardDeviationTimeMs: number | null;
-  averageTimeMicroseconds: number | null;
-  averageMessageSizeBytes: number | null;
-  averageProcessingStepCount: number | null;
-};
 
 type BenchmarkDetailPageProps = {
   benchmarkId: string;
   onNavigate: (path: string) => void;
+};
+
+type RuntimeSummary = {
+  totalRequests: number | null;
+  policyLabel: string;
+  freshAttestationCount: number;
+  savedRuntimeMeasurementCount: number;
+  averageChallengeFetchMs: number | null;
+  averageDeviceSigningMs: number | null;
+  averageBackendVerificationMs: number | null;
+  averageFreshProofCostMs: number | null;
 };
 
 export function BenchmarkDetailPage({
@@ -46,7 +40,9 @@ export function BenchmarkDetailPage({
   onNavigate,
 }: BenchmarkDetailPageProps) {
   const [benchmark, setBenchmark] = useState<BenchmarkRun | null>(null);
-  const [measurements, setMeasurements] = useState<VerificationMeasurement[]>([]);
+  const [runtimeMeasurements, setRuntimeMeasurements] = useState<
+    RuntimeBenchmarkMeasurement[]
+  >([]);
   const [isLoading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,17 +51,15 @@ export function BenchmarkDetailPage({
     setLoading(true);
 
     try {
-      const [benchmarkData, measurementData] = await Promise.all([
+      const [benchmarkData, runtimeMeasurementData] = await Promise.all([
         getBenchmark(benchmarkId),
-        listBenchmarkMeasurements(benchmarkId),
+        listBenchmarkRuntimeMeasurements(benchmarkId),
       ]);
 
       setBenchmark(benchmarkData);
-      setMeasurements(
-        [...measurementData].sort(
-          (left, right) =>
-            new Date(left.createdAtUtc).getTime() -
-            new Date(right.createdAtUtc).getTime(),
+      setRuntimeMeasurements(
+        [...runtimeMeasurementData].sort(
+          (left, right) => left.runIndex - right.runIndex,
         ),
       );
     } catch (ex) {
@@ -79,22 +73,9 @@ export function BenchmarkDetailPage({
     void loadDetail();
   }, [benchmarkId]);
 
-  const comparisonRows = useMemo(
-    () => comparisonPhases.map((phase) => aggregatePhase(phase, measurements)),
-    [measurements],
-  );
-
-  const softwareMeasurementCount = countMeasurementsByPhase(
-    measurements,
-    'SoftwareVerification',
-  );
-  const hardwareEnrollmentMeasurementCount = countMeasurementsByPhase(
-    measurements,
-    'HardwareEnrollment',
-  );
-  const hardwareVerificationMeasurementCount = countMeasurementsByPhase(
-    measurements,
-    'HardwareVerification',
+  const runtimeSummary = useMemo(
+    () => summarizeRuntimeMeasurements(benchmark, runtimeMeasurements),
+    [benchmark, runtimeMeasurements],
   );
 
   if (isLoading) {
@@ -124,32 +105,115 @@ export function BenchmarkDetailPage({
 
       <div className="metric-grid">
         <MetricCard
-          label="Runtime Iterations"
-          value={formatNumber(benchmark.iterationCount)}
+          label="Total Requests"
+          value={formatNumber(runtimeSummary.totalRequests)}
+        />
+        <MetricCard label="Policy" value={runtimeSummary.policyLabel} />
+        <MetricCard
+          label="Fresh Attestations"
+          value={formatNumber(runtimeSummary.freshAttestationCount)}
         />
         <MetricCard
-          label="Software Measurements"
-          value={formatNumber(softwareMeasurementCount)}
+          label="Saved Measurements"
+          value={formatNumber(runtimeSummary.savedRuntimeMeasurementCount)}
         />
         <MetricCard
-          label="Hardware Enrollment Measurements"
-          value={formatNumber(hardwareEnrollmentMeasurementCount)}
+          label="Avg Challenge Fetch"
+          value={formatMetricMs(runtimeSummary.averageChallengeFetchMs)}
         />
         <MetricCard
-          label="Hardware Verification Measurements"
-          value={formatNumber(hardwareVerificationMeasurementCount)}
+          label="Avg Device Signing"
+          value={formatMetricMs(runtimeSummary.averageDeviceSigningMs)}
         />
         <MetricCard
-          label="Total Measurements"
-          value={formatNumber(measurements.length)}
+          label="Avg Backend Verification"
+          value={formatMetricMs(runtimeSummary.averageBackendVerificationMs)}
         />
-        <MetricCard label="Started At" value={formatDateTime(benchmark.startedAtUtc)} />
         <MetricCard
-          label="Completed At"
-          value={formatDateTime(benchmark.completedAtUtc)}
+          label="Avg Fresh Proof Cost"
+          value={formatMetricMs(runtimeSummary.averageFreshProofCostMs)}
         />
         <MetricCard label="Duration" value={formatDuration(benchmark.durationMs)} />
+        <MetricCard label="Success" value={String(benchmark.success)} />
       </div>
+
+      <section className="table-section">
+        <div className="section-heading">
+          <div>
+            <h2>Runtime Measurements</h2>
+            <p>
+              Per-request runtime measurements reported by the mobile benchmark
+              runner.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() =>
+              downloadRuntimeMeasurementsCsv(benchmark, runtimeMeasurements)
+            }
+            disabled={runtimeMeasurements.length === 0}
+            title={
+              runtimeMeasurements.length === 0
+                ? 'No runtime measurements available for export.'
+                : undefined
+            }
+          >
+            <Download size={16} aria-hidden="true" />
+            Download CSV
+          </button>
+        </div>
+
+        {runtimeMeasurements.length === 0 ? (
+          <EmptyState
+            title="No runtime measurements have been saved for this benchmark run yet."
+            message="Run the mobile benchmark again to populate runtime cost-freshness data."
+          />
+        ) : (
+          <div className="table-card">
+            <table>
+              <thead>
+                <tr>
+                  <th>Benchmark Code</th>
+                  <th>Total Requests</th>
+                  <th>Challenge Fetch Ms</th>
+                  <th>Device Signing Ms</th>
+                  <th>Backend Verification Ms</th>
+                  <th>Fresh Proof Cost Ms</th>
+                  <th>Operation Total Ms</th>
+                  <th>Run Index</th>
+                  <th>Policy</th>
+                  <th>Fresh</th>
+                  <th>Success</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {runtimeMeasurements.map((measurement) => (
+                  <tr key={measurement.id}>
+                    <td>{benchmark.code}</td>
+                    <td>{formatNumber(measurement.totalRequests)}</td>
+                    <td>{formatPreciseMeasurement(measurement.challengeFetchMs)}</td>
+                    <td>{formatPreciseMeasurement(measurement.deviceSigningMs)}</td>
+                    <td>
+                      {formatPreciseMeasurement(
+                        measurement.backendVerificationMs,
+                      )}
+                    </td>
+                    <td>{formatPreciseMeasurement(measurement.freshProofCostMs)}</td>
+                    <td>{formatPreciseMeasurement(measurement.operationTotalMs)}</td>
+                    <td>{formatNumber(measurement.runIndex)}</td>
+                    <td>{measurement.policyLabel}</td>
+                    <td>{String(measurement.attestationPerformed)}</td>
+                    <td>{String(measurement.success)}</td>
+                    <td>{formatDateTime(measurement.clientTimestampUtc)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <div className="info-grid">
         <section className="info-card">
@@ -222,115 +286,6 @@ export function BenchmarkDetailPage({
         </section>
       </div>
 
-      <section className="table-section">
-        <div className="section-heading">
-          <h2>Runtime Comparison</h2>
-          <p>
-            SoftwareVerification and HardwareVerification are runtime phases.
-            HardwareEnrollment is a separate setup cost.
-          </p>
-        </div>
-        <div className="table-card">
-          <table>
-            <thead>
-              <tr>
-                <th>Phase</th>
-                <th>Count</th>
-                <th>Accepted Count</th>
-                <th>Success Rate %</th>
-                <th>Avg backend time ms</th>
-                <th>Min backend time ms</th>
-                <th>Max backend time ms</th>
-                <th>Std dev backend time ms</th>
-                <th>Avg backend time microseconds</th>
-                <th>Avg message size bytes</th>
-                <th>Avg processing step count</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comparisonRows.map((row) => (
-                <tr
-                  key={row.phase}
-                  className={
-                    row.phase === 'HardwareEnrollment'
-                      ? 'setup-cost-row'
-                      : 'runtime-comparison-row'
-                  }
-                >
-                  <td>{row.phase}</td>
-                  <td>{formatNumber(row.count)}</td>
-                  <td>{formatNumber(row.acceptedCount)}</td>
-                  <td>{formatPercent(row.successRate)}</td>
-                  <td>{formatMetric(row.averageTimeMs)}</td>
-                  <td>{formatMetric(row.minimumTimeMs)}</td>
-                  <td>{formatMetric(row.maximumTimeMs)}</td>
-                  <td>{formatMetric(row.standardDeviationTimeMs)}</td>
-                  <td>{formatMetric(row.averageTimeMicroseconds)}</td>
-                  <td>{formatMetric(row.averageMessageSizeBytes)}</td>
-                  <td>{formatMetric(row.averageProcessingStepCount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="table-section">
-        <div className="section-heading">
-          <div>
-            <h2>Raw Measurements</h2>
-            <p>All measurement records associated with this benchmark run.</p>
-          </div>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={() => downloadRawMeasurementsCsv(benchmark, measurements)}
-            disabled={measurements.length === 0}
-          >
-            <Download size={16} aria-hidden="true" />
-            Download CSV
-          </button>
-        </div>
-
-        {measurements.length === 0 ? (
-          <EmptyState title="No measurements recorded yet." />
-        ) : (
-          <div className="table-card">
-            <table>
-              <thead>
-                <tr>
-                  <th>Created At</th>
-                  <th>Attestation Type</th>
-                  <th>Accepted</th>
-                  <th>Risk Level</th>
-                  <th>Time ms</th>
-                  <th>Time microseconds</th>
-                  <th>Message bytes</th>
-                  <th>Steps</th>
-                </tr>
-              </thead>
-              <tbody>
-                {measurements.map((measurement) => (
-                  <tr key={measurement.id}>
-                    <td>{formatDateTime(measurement.createdAtUtc)}</td>
-                    <td>{measurement.attestationType}</td>
-                    <td>
-                      <StatusBadge value={String(measurement.accepted)} />
-                    </td>
-                    <td>
-                      <StatusBadge value={measurement.riskLevel} />
-                    </td>
-                    <td>{formatNumber(measurement.verificationTimeMs)}</td>
-                    <td>{formatNumber(measurement.verificationTimeMicroseconds)}</td>
-                    <td>{formatNumber(measurement.messageSizeBytes)}</td>
-                    <td>{formatNumber(measurement.processingStepCount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
     </section>
   );
 }
@@ -350,34 +305,117 @@ function InfoRow({
   );
 }
 
-function downloadRawMeasurementsCsv(
+function summarizeRuntimeMeasurements(
+  benchmark: BenchmarkRun | null,
+  measurements: RuntimeBenchmarkMeasurement[],
+): RuntimeSummary {
+  const firstMeasurement = measurements[0];
+  const freshMeasurements = measurements.filter(
+    (measurement) => measurement.attestationPerformed,
+  );
+
+  return {
+    totalRequests:
+      firstMeasurement?.totalRequests ?? benchmark?.iterationCount ?? null,
+    policyLabel: firstMeasurement?.policyLabel ?? '-',
+    freshAttestationCount: freshMeasurements.length,
+    savedRuntimeMeasurementCount: measurements.length,
+    averageChallengeFetchMs: average(
+      freshMeasurements.map((measurement) => measurement.challengeFetchMs),
+    ),
+    averageDeviceSigningMs: average(
+      freshMeasurements.map((measurement) => measurement.deviceSigningMs),
+    ),
+    averageBackendVerificationMs: average(
+      freshMeasurements.map((measurement) => measurement.backendVerificationMs),
+    ),
+    averageFreshProofCostMs: average(
+      freshMeasurements.map((measurement) => measurement.freshProofCostMs),
+    ),
+  };
+}
+
+function downloadRuntimeMeasurementsCsv(
   benchmark: BenchmarkRun,
-  measurements: VerificationMeasurement[],
+  measurements: RuntimeBenchmarkMeasurement[],
 ) {
+  if (measurements.length === 0) {
+    window.alert('No runtime measurements available for export.');
+    return;
+  }
+
   const headers = [
     'Benchmark Code',
-    'Benchmark Id',
-    'Created At',
-    'Attestation Type',
-    'Accepted',
-    'Risk Level',
-    'Verification Time Ms',
-    'Verification Time Microseconds',
-    'Message Size Bytes',
-    'Processing Step Count',
+    'Total Requests',
+    'Challenge Fetch Ms',
+    'Device Signing Ms',
+    'Backend Verification Ms',
+    'Fresh Proof Cost Ms',
+    'Operation Total Ms',
+    'Started At',
+    'Completed At',
+    'Duration Ms',
+    'Success',
+    'Mobile Manufacturer',
+    'Mobile Brand',
+    'Mobile Model',
+    'Mobile Device',
+    'Mobile Hardware',
+    'Android Version',
+    'Android SDK',
+    'Mobile CPU Cores',
+    'Mobile RAM',
+    'Mobile ABIs',
+    'Is Emulator',
+    'Backend Machine',
+    'Backend OS',
+    'Backend Architecture',
+    'Backend CPU Cores',
+    'Backend Available RAM',
+    'Policy K',
+    'Policy Label',
+    'Run Index',
+    'Attestation Performed',
+    'Measurement Success',
+    'Error Message',
+    'Timestamp',
   ];
 
   const rows = measurements.map((measurement) => [
     benchmark.code,
-    benchmark.id,
-    measurement.createdAtUtc,
-    measurement.attestationType,
-    String(measurement.accepted),
-    measurement.riskLevel,
-    String(measurement.verificationTimeMs),
-    String(measurement.verificationTimeMicroseconds),
-    String(measurement.messageSizeBytes),
-    String(measurement.processingStepCount),
+    String(measurement.totalRequests),
+    formatPreciseMeasurement(measurement.challengeFetchMs),
+    formatPreciseMeasurement(measurement.deviceSigningMs),
+    formatPreciseMeasurement(measurement.backendVerificationMs),
+    formatPreciseMeasurement(measurement.freshProofCostMs),
+    formatPreciseMeasurement(measurement.operationTotalMs),
+    benchmark.startedAtUtc,
+    benchmark.completedAtUtc ?? '',
+    valueOrEmpty(benchmark.durationMs),
+    String(benchmark.success),
+    benchmark.mobileDevice?.manufacturer ?? '',
+    benchmark.mobileDevice?.brand ?? '',
+    benchmark.mobileDevice?.model ?? '',
+    benchmark.mobileDevice?.device ?? '',
+    benchmark.mobileDevice?.hardware ?? '',
+    benchmark.mobileDevice?.androidVersion ?? '',
+    valueOrEmpty(benchmark.mobileDevice?.sdkInt),
+    valueOrEmpty(benchmark.mobileDevice?.cpuCoreCount),
+    valueOrEmpty(benchmark.mobileDevice?.totalMemoryBytes),
+    benchmark.mobileDevice?.supportedAbis?.join('|') ?? '',
+    valueOrEmpty(benchmark.mobileDevice?.isEmulator),
+    benchmark.backendSystem?.machineName ?? '',
+    benchmark.backendSystem?.osDescription ?? '',
+    benchmark.backendSystem?.processArchitecture ?? '',
+    valueOrEmpty(benchmark.backendSystem?.processorCount),
+    valueOrEmpty(benchmark.backendSystem?.totalAvailableMemoryBytes),
+    measurement.policyK,
+    measurement.policyLabel,
+    String(measurement.runIndex),
+    String(measurement.attestationPerformed),
+    String(measurement.success),
+    measurement.errorMessage ?? '',
+    measurement.clientTimestampUtc,
   ]);
 
   const csv = [headers, ...rows]
@@ -389,7 +427,7 @@ function downloadRawMeasurementsCsv(
   const link = document.createElement('a');
 
   link.href = url;
-  link.download = `${benchmark.code}-raw-measurements.csv`;
+  link.download = `${benchmark.code}-runtime-measurements.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -404,50 +442,6 @@ function escapeCsvValue(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-function aggregatePhase(
-  phase: MeasurementPhase,
-  measurements: VerificationMeasurement[],
-): PhaseAggregate {
-  const phaseMeasurements = measurements.filter((item) => item.phase === phase);
-  const verificationTimes = phaseMeasurements.map(
-    (item) => item.verificationTimeMs,
-  );
-  const averageTimeMs = average(verificationTimes);
-
-  return {
-    phase,
-    count: phaseMeasurements.length,
-    acceptedCount: phaseMeasurements.filter((item) => item.accepted).length,
-    successRate:
-      phaseMeasurements.length === 0
-        ? null
-        : phaseMeasurements.filter((item) => item.accepted).length /
-          phaseMeasurements.length,
-    averageTimeMs,
-    minimumTimeMs:
-      verificationTimes.length === 0 ? null : Math.min(...verificationTimes),
-    maximumTimeMs:
-      verificationTimes.length === 0 ? null : Math.max(...verificationTimes),
-    standardDeviationTimeMs: standardDeviation(verificationTimes, averageTimeMs),
-    averageTimeMicroseconds: average(
-      phaseMeasurements.map((item) => item.verificationTimeMicroseconds),
-    ),
-    averageMessageSizeBytes: average(
-      phaseMeasurements.map((item) => item.messageSizeBytes),
-    ),
-    averageProcessingStepCount: average(
-      phaseMeasurements.map((item) => item.processingStepCount),
-    ),
-  };
-}
-
-function countMeasurementsByPhase(
-  measurements: VerificationMeasurement[],
-  phase: MeasurementPhase,
-): number {
-  return measurements.filter((item) => item.phase === phase).length;
-}
-
 function average(values: number[]): number | null {
   if (values.length === 0) {
     return null;
@@ -456,38 +450,40 @@ function average(values: number[]): number | null {
   return values.reduce((total, value) => total + value, 0) / values.length;
 }
 
-function standardDeviation(
-  values: number[],
-  averageValue: number | null,
-): number | null {
-  if (values.length === 0 || averageValue === null) {
-    return null;
+function valueOrEmpty(value: boolean | number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '';
   }
 
-  const variance =
-    values.reduce((total, value) => total + (value - averageValue) ** 2, 0) /
-    values.length;
-
-  return Math.sqrt(variance);
+  return String(value);
 }
 
-function formatMetric(value: number | null): string {
+function formatMetricMs(value: number | null): string {
   if (value === null) {
     return '-';
   }
 
-  return new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: 3,
-  }).format(value);
+  return `${formatPreciseMeasurement(value)} ms`;
 }
 
-function formatPercent(value: number | null): string {
-  if (value === null) {
-    return '-';
+function formatPreciseMeasurement(value: number): string {
+  if (value === 0) {
+    return '0';
   }
 
-  return new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: 1,
-    style: 'percent',
-  }).format(value);
+  const absoluteValue = Math.abs(value);
+
+  if (absoluteValue < 1) {
+    return trimTrailingZeros(value.toFixed(9));
+  }
+
+  if (Number.isInteger(value)) {
+    return String(value);
+  }
+
+  return trimTrailingZeros(value.toFixed(6));
+}
+
+function trimTrailingZeros(value: string): string {
+  return value.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
 }

@@ -55,7 +55,7 @@ export function BenchmarkListPage({ onNavigate }: BenchmarkListPageProps) {
       <div className="toolbar">
         <div>
           <h2>Benchmark history</h2>
-          <p>Compare mobile attestation runs captured by the backend.</p>
+          <p>Review mobile attestation benchmark runs captured by the backend.</p>
         </div>
         <button type="button" className="icon-button" onClick={loadBenchmarks}>
           <RefreshCw size={16} aria-hidden="true" />
@@ -66,7 +66,7 @@ export function BenchmarkListPage({ onNavigate }: BenchmarkListPageProps) {
       {benchmarks.length === 0 ? (
         <EmptyState
           title="No benchmarks yet"
-          message="Run a software or hardware benchmark from the mobile client to populate this dashboard."
+          message="Run an Android hardware-backed attestation benchmark from the mobile client to populate this dashboard."
         />
       ) : (
         <div className="table-card">
