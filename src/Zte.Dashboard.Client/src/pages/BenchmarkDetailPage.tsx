@@ -193,11 +193,15 @@ export function BenchmarkDetailPage({
                   <tr key={measurement.id}>
                     <td>{benchmark.code}</td>
                     <td>{formatNumber(measurement.totalRequests)}</td>
-                    <td>{formatNumber(measurement.challengeFetchMs)}</td>
-                    <td>{formatNumber(measurement.deviceSigningMs)}</td>
-                    <td>{formatNumber(measurement.backendVerificationMs)}</td>
-                    <td>{formatNumber(measurement.freshProofCostMs)}</td>
-                    <td>{formatNumber(measurement.operationTotalMs)}</td>
+                    <td>{formatPreciseMeasurement(measurement.challengeFetchMs)}</td>
+                    <td>{formatPreciseMeasurement(measurement.deviceSigningMs)}</td>
+                    <td>
+                      {formatPreciseMeasurement(
+                        measurement.backendVerificationMs,
+                      )}
+                    </td>
+                    <td>{formatPreciseMeasurement(measurement.freshProofCostMs)}</td>
+                    <td>{formatPreciseMeasurement(measurement.operationTotalMs)}</td>
                     <td>{formatNumber(measurement.runIndex)}</td>
                     <td>{measurement.policyLabel}</td>
                     <td>{String(measurement.attestationPerformed)}</td>
@@ -380,11 +384,11 @@ function downloadRuntimeMeasurementsCsv(
   const rows = measurements.map((measurement) => [
     benchmark.code,
     String(measurement.totalRequests),
-    String(measurement.challengeFetchMs),
-    String(measurement.deviceSigningMs),
-    String(measurement.backendVerificationMs),
-    String(measurement.freshProofCostMs),
-    String(measurement.operationTotalMs),
+    formatPreciseMeasurement(measurement.challengeFetchMs),
+    formatPreciseMeasurement(measurement.deviceSigningMs),
+    formatPreciseMeasurement(measurement.backendVerificationMs),
+    formatPreciseMeasurement(measurement.freshProofCostMs),
+    formatPreciseMeasurement(measurement.operationTotalMs),
     benchmark.startedAtUtc,
     benchmark.completedAtUtc ?? '',
     valueOrEmpty(benchmark.durationMs),
@@ -459,7 +463,27 @@ function formatMetricMs(value: number | null): string {
     return '-';
   }
 
-  return `${new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: 3,
-  }).format(value)} ms`;
+  return `${formatPreciseMeasurement(value)} ms`;
+}
+
+function formatPreciseMeasurement(value: number): string {
+  if (value === 0) {
+    return '0';
+  }
+
+  const absoluteValue = Math.abs(value);
+
+  if (absoluteValue < 1) {
+    return trimTrailingZeros(value.toFixed(9));
+  }
+
+  if (Number.isInteger(value)) {
+    return String(value);
+  }
+
+  return trimTrailingZeros(value.toFixed(6));
+}
+
+function trimTrailingZeros(value: string): string {
+  return value.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
 }
