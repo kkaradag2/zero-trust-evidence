@@ -102,3 +102,26 @@ export type BenchmarkBackendSystemInfo = {
 export type FailBenchmarkRunRequest = {
   errorMessage: string;
 };
+
+export type RuntimeMeasurementRequest = {
+  policyK: string;
+  policyLabel: string;
+  runIndex: number;
+  totalRequests: number;
+  attestationPerformed: boolean;
+  challengeFetchMs: number;
+  deviceSigningMs: number;
+  backendVerificationMs: number;
+  freshProofCostMs: number;
+  operationTotalMs: number;
+  requestPayloadBytes: number;
+  responsePayloadBytes: number;
+  success: boolean;
+  errorMessage: string;
+  timestamp: string;
+};
+
+export type SaveRuntimeMeasurementsResponse = {
+  benchmarkRunId: string;
+  savedCount: number;
+};

@@ -7,6 +7,8 @@ import {
   BenchmarkType,
   BenchmarkDeviceInfo,
   FailBenchmarkRunRequest,
+  RuntimeMeasurementRequest,
+  SaveRuntimeMeasurementsResponse,
 } from '../types/attestation';
 
 const API_BASE_URL = 'http://10.0.2.2:5145';
@@ -152,6 +154,30 @@ export async function failBenchmarkRun(
 
   if (!response.ok) {
     throw new Error(`Fail benchmark run failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function saveRuntimeMeasurements(
+  benchmarkRunId: string,
+  measurements: RuntimeMeasurementRequest[],
+): Promise<SaveRuntimeMeasurementsResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/benchmarks/${benchmarkRunId}/runtime-measurements`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(measurements),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Runtime measurement save failed with status ${response.status}`,
+    );
   }
 
   return response.json();

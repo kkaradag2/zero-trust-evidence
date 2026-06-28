@@ -15,6 +15,7 @@ import {
   createBenchmarkRun,
   failBenchmarkRun,
   getAttestationChallenge,
+  saveRuntimeMeasurements,
   verifyHardwareAttestation,
 } from '../api/attestationApi';
 
@@ -22,6 +23,7 @@ import {enrollHardwareDevice} from '../api/hardwareAttestationFlow';
 import { DEFAULT_BENCHMARK_ITERATION_COUNT } from '../config/benchmarkConfig';
 
 import type { BenchmarkRun } from '../types/attestation';
+import type { RuntimeMeasurementRequest } from '../types/attestation';
 
 import {
   getDeviceIdentity,
@@ -76,6 +78,11 @@ export function BenchmarkScreen() {
   const [measurements, setMeasurements] = useState<
     BenchmarkIterationMeasurement[]
   >([]);
+  const [savedMeasurementCount, setSavedMeasurementCount] = useState<
+    number | null
+  >(null);
+  const [runtimeMeasurementSaveError, setRuntimeMeasurementSaveError] =
+    useState<string | null>(null);
 
   const selectedPolicyLabel = getPolicyLabel(selectedPolicy);
   const freshAttestationCount = calculateFreshAttestationCount(
@@ -110,6 +117,8 @@ export function BenchmarkScreen() {
       setLoading(true);
       setBenchmarkRun(null);
       setMeasurements([]);
+      setSavedMeasurementCount(null);
+      setRuntimeMeasurementSaveError(null);
       setStartedAtLocal(new Date().toISOString());
       setCompletedAtLocal(null);
 
@@ -159,6 +168,26 @@ export function BenchmarkScreen() {
 
       setBenchmarkRun(completedRun);
       setCompletedAtLocal(new Date().toISOString());
+
+      try {
+        if (nextMeasurements.length !== iterationCount) {
+          throw new Error(
+            `Expected ${iterationCount} runtime measurements, got ${nextMeasurements.length}.`,
+          );
+        }
+
+        const saveResult = await saveRuntimeMeasurements(
+          createdRun.id,
+          toRuntimeMeasurementRequests(nextMeasurements),
+        );
+        setSavedMeasurementCount(saveResult.savedCount);
+      } catch (saveError) {
+        const saveMessage =
+          saveError instanceof Error
+            ? saveError.message
+            : 'Runtime measurement save failed.';
+        setRuntimeMeasurementSaveError(saveMessage);
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Benchmark failed.';
@@ -283,10 +312,23 @@ export function BenchmarkScreen() {
           value={benchmarkRun ? String(benchmarkRun.success) : '-'}
         />
         <SummaryRow
+          label="Saved Measurements"
+          value={formatSavedMeasurementCount(
+            savedMeasurementCount,
+            runtimeMeasurementSaveError,
+          )}
+        />
+        <SummaryRow
           label="Duration"
           value={formatDuration(benchmarkRun?.durationMs)}
         />
         <SummaryRow label="Error" value={benchmarkRun?.errorMessage ?? '-'} />
+        {runtimeMeasurementSaveError ? (
+          <SummaryRow
+            label="Measurement Save Error"
+            value={`Runtime measurement save failed: ${runtimeMeasurementSaveError}`}
+          />
+        ) : null}
       </View>
 
       <View style={styles.card}>
@@ -439,22 +481,46 @@ function createReuseMeasurement({
   policy: RefreshPolicyValue;
   totalRequests: number;
 }): BenchmarkIterationMeasurement {
-  const operationStartedAt = Date.now();
-
   return {
     runIndex,
     policy,
     totalRequests,
     attestationPerformed: false,
-    challengeFetchMs: null,
-    deviceSigningMs: null,
-    backendVerificationMs: null,
-    freshProofCostMs: null,
-    operationTotalMs: Date.now() - operationStartedAt,
+    challengeFetchMs: 0,
+    deviceSigningMs: 0,
+    backendVerificationMs: 0,
+    freshProofCostMs: 0,
+    operationTotalMs: 0,
     success: true,
     errorMessage: null,
     timestamp: new Date().toISOString(),
   };
+}
+
+function toRuntimeMeasurementRequests(
+  measurements: BenchmarkIterationMeasurement[],
+): RuntimeMeasurementRequest[] {
+  return measurements.map((measurement) => ({
+    policyK: String(measurement.policy),
+    policyLabel: getPolicyLabel(measurement.policy),
+    runIndex: measurement.runIndex,
+    totalRequests: measurement.totalRequests,
+    attestationPerformed: measurement.attestationPerformed,
+    challengeFetchMs: measurement.challengeFetchMs ?? 0,
+    deviceSigningMs: measurement.deviceSigningMs ?? 0,
+    backendVerificationMs: measurement.backendVerificationMs ?? 0,
+    freshProofCostMs:
+      measurement.freshProofCostMs ??
+      (measurement.challengeFetchMs ?? 0) +
+        (measurement.deviceSigningMs ?? 0) +
+        (measurement.backendVerificationMs ?? 0),
+    operationTotalMs: measurement.operationTotalMs,
+    requestPayloadBytes: 0,
+    responsePayloadBytes: 0,
+    success: measurement.success,
+    errorMessage: measurement.errorMessage ?? '',
+    timestamp: measurement.timestamp,
+  }));
 }
 
 function SummaryRow({label, value}: {label: string; value: string}) {
@@ -540,6 +606,21 @@ function formatMetricMs(value: number | null): string {
   }
 
   return `${Math.round(value)} ms`;
+}
+
+function formatSavedMeasurementCount(
+  savedMeasurementCount: number | null,
+  runtimeMeasurementSaveError: string | null,
+): string {
+  if (runtimeMeasurementSaveError) {
+    return 'failed';
+  }
+
+  if (savedMeasurementCount === null) {
+    return '-';
+  }
+
+  return String(savedMeasurementCount);
 }
 
 function formatBytes(value: number | null | undefined): string {

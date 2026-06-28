@@ -154,12 +154,12 @@ code {
 
 .dashboard-header {
   display: flex;
-  min-height: 88px;
+  min-height: 76px;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
-  padding: 20px 36px;
+  padding: 16px 32px;
 }
 
 .dashboard-header h1 {
@@ -183,13 +183,13 @@ code {
   min-height: 0;
   flex: 1;
   overflow: auto;
-  padding: 28px 36px 40px;
+  padding: 22px 32px 34px;
 }
 
 .page-stack {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 16px;
 }
 
 .toolbar,
@@ -240,7 +240,6 @@ code {
 }
 
 .table-card,
-.summary-card,
 .info-card,
 .empty-state,
 .state-panel,
@@ -265,7 +264,7 @@ table {
 th,
 td {
   border-bottom: 1px solid var(--border);
-  padding: 14px 16px;
+  padding: 10px 12px;
   text-align: left;
   vertical-align: middle;
   white-space: nowrap;
@@ -322,39 +321,6 @@ tbody tr:last-child td {
   color: #3f3f46;
 }
 
-.summary-card {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 22px;
-}
-
-.summary-card h2 {
-  margin: 6px 0 8px;
-  color: var(--ink);
-  font-size: 22px;
-  line-height: 30px;
-}
-
-.summary-card p {
-  margin: 0;
-}
-
-.secondary-code {
-  margin-top: 8px !important;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.summary-card__badges {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
 .eyebrow {
   color: var(--muted);
   font-size: 11px;
@@ -365,13 +331,13 @@ tbody tr:last-child td {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .metric-card {
-  min-height: 96px;
-  padding: 18px;
+  min-height: 70px;
+  padding: 10px 12px;
 }
 
 .metric-card__label {
@@ -384,28 +350,28 @@ tbody tr:last-child td {
 }
 
 .metric-card__value {
-  margin-top: 12px;
+  margin-top: 8px;
   color: var(--ink);
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
-  line-height: 28px;
+  line-height: 22px;
 }
 
 .info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
 }
 
 .info-card {
-  padding: 18px;
+  padding: 14px;
 }
 
 .info-card dl {
   display: grid;
   grid-template-columns: minmax(120px, 0.4fr) minmax(0, 1fr);
-  gap: 10px 16px;
-  margin: 14px 0 0;
+  gap: 8px 12px;
+  margin: 10px 0 0;
 }
 
 .info-card dt {
@@ -434,7 +400,7 @@ tbody tr:last-child td {
 
 .empty-state,
 .state-panel {
-  padding: 44px 24px;
+  padding: 28px 20px;
   text-align: center;
 }
 
@@ -462,28 +428,6 @@ tbody tr:last-child td {
   flex-direction: column;
   gap: 6px;
   color: #991b1b;
-}
-
-.runtime-comparison-row td:first-child {
-  color: #18181b;
-  font-weight: 700;
-}
-
-.setup-cost-row {
-  background: #fafafa;
-}
-
-.setup-cost-row td:first-child::after {
-  content: " setup cost";
-  display: inline-flex;
-  margin-left: 8px;
-  border-radius: 999px;
-  background: #f4f4f5;
-  color: #71717a;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 16px;
-  padding: 2px 7px;
 }
 
 @media (max-width: 960px) {
@@ -526,8 +470,7 @@ tbody tr:last-child td {
 
 @media (max-width: 640px) {
   .toolbar,
-  .section-heading,
-  .summary-card {
+  .section-heading {
     align-items: flex-start;
     flex-direction: column;
   }
